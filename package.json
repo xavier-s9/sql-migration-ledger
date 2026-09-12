@@ -1,0 +1,15 @@
+{
+  "name": "sqlmigrate",
+  "version": "0.1.0",
+  "description": "Track which SQL migration files have been applied, without a database driver",
+  "bin": {
+    "sqlmigrate": "dist/cli.js"
+  },
+  "main": "dist/cli.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "license": "MIT",
+  "author": "xavier-s9",
+  "private": true
+}

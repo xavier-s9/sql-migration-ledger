@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {
   findSequenceGaps,
+  initMigrationsDir,
   loadMigrations,
   readMigrationSql,
   checksumFile,
@@ -75,6 +76,20 @@ function buildStatus(migrations: MigrationFile[], ledger: Ledger): StatusRow[] {
   }
 
   return rows;
+}
+
+function runInit(args: ParsedArgs): void {
+  const result = initMigrationsDir(args.dir);
+
+  if (args.json) {
+    process.stdout.write(JSON.stringify({ dir: args.dir, ...result }, null, 2) + '\n');
+    return;
+  }
+
+  console.log(result.created ? `created ${args.dir}` : `${args.dir} already exists`);
+  if (result.addedGitkeep) {
+    console.log(`added ${args.dir}/.gitkeep so the empty directory can be committed`);
+  }
 }
 
 function runStatus(args: ParsedArgs): void {
@@ -201,6 +216,7 @@ migration files against a local ledger and tells you what still needs
 running, or hands you the raw SQL to pipe into whatever client you use.
 
 usage:
+  sqlmigrate init   [--dir <path>] [--json]
   sqlmigrate status [--dir <path>] [--ledger <path>] [--json]
   sqlmigrate plan   [--dir <path>] [--ledger <path>] [--json]
   sqlmigrate mark   <id...> | --all [--dir <path>] [--ledger <path>] [--json]
@@ -228,6 +244,9 @@ function main(): void {
 
   try {
     switch (args.command) {
+      case 'init':
+        runInit(args);
+        break;
       case 'status':
         runStatus(args);
         break;

@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
@@ -12,6 +12,26 @@ export interface MigrationFile {
   sequence: number;
   description: string;
   filePath: string;
+}
+
+export interface InitResult {
+  created: boolean;
+  addedGitkeep: boolean;
+}
+
+// A freshly created directory has nothing in it for git to track, so drop a
+// .gitkeep in it - otherwise `init` looks like it did nothing once the repo
+// is cloned elsewhere.
+export function initMigrationsDir(dir: string): InitResult {
+  const created = !existsSync(dir);
+  mkdirSync(dir, { recursive: true });
+
+  const addedGitkeep = readdirSync(dir).length === 0;
+  if (addedGitkeep) {
+    writeFileSync(join(dir, '.gitkeep'), '', 'utf8');
+  }
+
+  return { created, addedGitkeep };
 }
 
 export function loadMigrations(dir: string): MigrationFile[] {

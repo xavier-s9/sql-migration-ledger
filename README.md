@@ -45,6 +45,22 @@ least four of them."
 
 ## Usage
 
+Set up a fresh project:
+
+```
+$ sqlmigrate init
+created migrations
+added migrations/.gitkeep so the empty directory can be committed
+```
+
+Running `init` again once the directory already has files in it is a
+no-op:
+
+```
+$ sqlmigrate init
+migrations already exists
+```
+
 Check what's applied and what's pending:
 
 ```

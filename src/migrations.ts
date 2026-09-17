@@ -3,8 +3,9 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 // 0001_create_users.sql - a leading numeric sequence, an underscore, then a
-// snake_case description. Down migrations use the same prefix plus .down.sql
-// and are intentionally skipped here; nothing reads them yet.
+// snake_case description. Down migrations use the same id plus .down.sql
+// (0001_create_users.down.sql) and are excluded from loadMigrations here -
+// they're looked up on demand via downMigrationPath, keyed off the up file.
 const FILENAME_PATTERN = /^(\d{4,})_([a-z0-9_]+)\.sql$/;
 
 export interface MigrationFile {
@@ -74,6 +75,18 @@ export function loadMigrations(dir: string): MigrationFile[] {
 
 export function readMigrationSql(migration: MigrationFile): string {
   return readFileSync(migration.filePath, 'utf8');
+}
+
+export function downMigrationPath(migration: MigrationFile): string {
+  return migration.filePath.slice(0, -'.sql'.length) + '.down.sql';
+}
+
+export function hasDownMigration(migration: MigrationFile): boolean {
+  return existsSync(downMigrationPath(migration));
+}
+
+export function readDownMigrationSql(migration: MigrationFile): string {
+  return readFileSync(downMigrationPath(migration), 'utf8');
 }
 
 export function checksumFile(filePath: string): string {

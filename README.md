@@ -43,6 +43,17 @@ The sequence number just needs to sort correctly; zero-padding to four
 digits is a convention, not a requirement enforced beyond "digits, at
 least four of them."
 
+A migration can optionally have a matching down file, named after the
+same id with a `.down.sql` suffix:
+
+```
+migrations/0002_add_users_email_index.sql
+migrations/0002_add_users_email_index.down.sql
+```
+
+Down files are never picked up by `status` or `plan` - they only come
+into play when you `revert` the migration they undo.
+
 ## Usage
 
 Set up a fresh project:
@@ -122,6 +133,23 @@ migration that was already marked applied has changed on disk since -
 that mismatch almost always means the ledger and the database have
 drifted apart and needs a human to look at it before anything else
 runs.
+
+To undo a migration, run its down file yourself and tell sqlmigrate to
+forget it was applied:
+
+```
+$ sqlmigrate revert
+-- 0002_add_users_email_index (down)
+DROP INDEX users_email_idx;
+
+removed 0002_add_users_email_index from the ledger - run the SQL above against your database
+```
+
+With no id, `revert` targets whichever migration has the most recent
+`appliedAt` timestamp in the ledger. Pass an id to target a specific
+one instead: `sqlmigrate revert 0002_add_users_email_index`. Either
+way it fails if the migration isn't marked applied, or if there's no
+matching `.down.sql` file to read.
 
 ## The ledger
 

@@ -5,6 +5,9 @@ import {
   loadMigrations,
   readMigrationSql,
   checksumFile,
+  downMigrationPath,
+  hasDownMigration,
+  readDownMigrationSql,
   type MigrationFile,
 } from './migrations';
 import { loadLedger, saveLedger, type Ledger } from './ledger';
@@ -208,6 +211,51 @@ function runMark(args: ParsedArgs): void {
   }
 }
 
+function runRevert(args: ParsedArgs): void {
+  const migrations = loadMigrations(args.dir);
+  const ledger = loadLedger(args.ledgerPath);
+
+  let targetId: string;
+  if (args.rest.length > 0) {
+    targetId = args.rest[0];
+  } else {
+    if (ledger.applied.length === 0) {
+      throw new Error('nothing is marked applied; nothing to revert');
+    }
+    targetId = ledger.applied.reduce((latest, entry) =>
+      entry.appliedAt > latest.appliedAt ? entry : latest
+    ).id;
+  }
+
+  const entry = ledger.applied.find((e) => e.id === targetId);
+  if (!entry) {
+    throw new Error(`migration ${targetId} is not marked applied`);
+  }
+
+  const migration = migrations.find((m) => m.id === targetId);
+  if (!migration) {
+    throw new Error(`migration ${targetId} has no file in ${args.dir}, so its down migration can't be found`);
+  }
+
+  if (!hasDownMigration(migration)) {
+    throw new Error(`no down migration found for ${targetId} (expected ${downMigrationPath(migration)})`);
+  }
+
+  const sql = readDownMigrationSql(migration);
+  ledger.applied = ledger.applied.filter((e) => e.id !== targetId);
+  saveLedger(args.ledgerPath, ledger);
+
+  if (args.json) {
+    process.stdout.write(JSON.stringify({ reverted: targetId, sql }, null, 2) + '\n');
+    return;
+  }
+
+  console.log(`-- ${targetId} (down)`);
+  console.log(sql.replace(/\s+$/, ''));
+  console.log('');
+  console.log(`removed ${targetId} from the ledger - run the SQL above against your database`);
+}
+
 function printHelp(): void {
   console.log(`sqlmigrate - track which SQL migration files have been applied
 
@@ -220,14 +268,19 @@ usage:
   sqlmigrate status [--dir <path>] [--ledger <path>] [--json]
   sqlmigrate plan   [--dir <path>] [--ledger <path>] [--json]
   sqlmigrate mark   <id...> | --all [--dir <path>] [--ledger <path>] [--json]
+  sqlmigrate revert [id] [--dir <path>] [--ledger <path>] [--json]
 
 defaults:
   --dir     migrations
   --ledger  .sqlmigrate-ledger.json
 
 migration files must be named <sequence>_<description>.sql, e.g.
-0001_create_users.sql. Down migrations use the same prefix with a
-.down.sql suffix; they are not tracked yet.`);
+0001_create_users.sql. Down migrations use the same id with a
+.down.sql suffix, e.g. 0001_create_users.down.sql.
+
+revert prints the down SQL for a migration (the most recently applied
+one if no id is given) and removes it from the ledger. Like plan and
+mark, it never runs the SQL itself - pipe the output to your client.`);
 }
 
 function fail(json: boolean, message: string): never {
@@ -255,6 +308,9 @@ function main(): void {
         break;
       case 'mark':
         runMark(args);
+        break;
+      case 'revert':
+        runRevert(args);
         break;
       case 'help':
       case '--help':

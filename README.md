@@ -169,12 +169,32 @@ tsc
 node dist/cli.js status
 ```
 
+## Config file
+
+If most invocations use the same `--dir` and `--ledger`, put them in a
+`.sqlmigraterc.json` file in the directory you run sqlmigrate from:
+
+```json
+{
+  "dir": "db/migrations",
+  "ledger": ".sqlmigrate-ledger.json"
+}
+```
+
+Both fields are optional. A `--dir` or `--ledger` flag on the command
+line always wins over the config file, which in turn wins over the
+built-in defaults (`migrations` and `.sqlmigrate-ledger.json`). Unlike
+the ledger, this file describes the project rather than one specific
+database, so it's fine - expected, even - to commit it.
+
 ## Flags
 
 Every command accepts:
 
-- `--dir <path>` - migrations directory (default `migrations`)
-- `--ledger <path>` - ledger file path (default `.sqlmigrate-ledger.json`)
+- `--dir <path>` - migrations directory (default `migrations`, or the
+  config file's `dir`)
+- `--ledger <path>` - ledger file path (default
+  `.sqlmigrate-ledger.json`, or the config file's `ledger`)
 - `--json` - machine-readable output instead of the human-readable text above
 
 ## License

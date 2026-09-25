@@ -11,6 +11,10 @@ import {
   type MigrationFile,
 } from './migrations';
 import { loadLedger, saveLedger, type Ledger } from './ledger';
+import { loadConfig } from './config';
+
+const DEFAULT_DIR = 'migrations';
+const DEFAULT_LEDGER = '.sqlmigrate-ledger.json';
 
 interface ParsedArgs {
   command: string;
@@ -20,10 +24,12 @@ interface ParsedArgs {
   rest: string[];
 }
 
+// Precedence, highest first: an explicit --dir/--ledger flag, then the
+// config file, then the hard-coded defaults.
 function parseArgs(argv: string[]): ParsedArgs {
   const [command, ...rest0] = argv;
-  let dir = 'migrations';
-  let ledgerPath = '.sqlmigrate-ledger.json';
+  let dir: string | undefined;
+  let ledgerPath: string | undefined;
   let json = false;
   const rest: string[] = [];
 
@@ -40,7 +46,15 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
   }
 
-  return { command: command ?? 'help', dir, ledgerPath, json, rest };
+  const config = loadConfig();
+
+  return {
+    command: command ?? 'help',
+    dir: dir ?? config.dir ?? DEFAULT_DIR,
+    ledgerPath: ledgerPath ?? config.ledger ?? DEFAULT_LEDGER,
+    json,
+    rest,
+  };
 }
 
 type MigrationState = 'applied' | 'pending' | 'modified' | 'missing';
@@ -293,9 +307,11 @@ function fail(json: boolean, message: string): never {
 }
 
 function main(): void {
-  const args = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
 
   try {
+    const args = parseArgs(argv);
+
     switch (args.command) {
       case 'init':
         runInit(args);
@@ -322,7 +338,9 @@ function main(): void {
         process.exitCode = 1;
     }
   } catch (err: unknown) {
-    fail(args.json, err instanceof Error ? err.message : String(err));
+    // args may not exist yet if parsing itself failed (e.g. a malformed
+    // config file), so read --json straight off argv for error formatting.
+    fail(argv.includes('--json'), err instanceof Error ? err.message : String(err));
   }
 }
 
